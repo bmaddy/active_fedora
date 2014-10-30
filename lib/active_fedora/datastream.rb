@@ -45,6 +45,10 @@ module ActiveFedora
       @ldp_source ||= Ldp::Resource::BinarySource.new(ldp_connection, uri)
     end
 
+    def ldp_metadata
+      @ldp_metadata ||= Ldp::Resource::RdfSource.new(ldp_connection, metadata_uri)
+    end
+
     def ldp_connection
       ActiveFedora.fedora.connection
     end
@@ -66,6 +70,7 @@ module ActiveFedora
       @ldp_source = nil
       @original_name = nil
       @mime_type = nil
+      @digest = nil
     end
 
     def initialize_dsid(dsid, prefix)
@@ -100,6 +105,10 @@ module ActiveFedora
 
     def original_name
       @original_name ||= fetch_original_name_from_headers
+    end
+
+    def digest
+      @digest ||= fetch_digest_from_resource
     end
 
     def size
@@ -204,6 +213,11 @@ module ActiveFedora
       ldp_source.head.headers['Content-Type']
     end
 
+    def fetch_digest_from_resource
+      r = ldp_metadata.graph.query(:predicate => RDF::URI.new("http://fedora.info/definitions/v4/rest-api#digest"))
+      r.map(&:object)
+    end
+
     def reset_attributes
       @content = nil
     end
@@ -213,6 +227,10 @@ module ActiveFedora
     # Rack::Test::UploadedFile is often set via content=, however it's not an IO, though it wraps an io object.
     def behaves_like_io?(obj)
       [IO, Tempfile, StringIO].any? { |klass| obj.kind_of? klass } || (defined?(Rack) && obj.is_a?(Rack::Test::UploadedFile))
+    end
+
+    def metadata_uri
+      uri + "/fcr:metadata"
     end
 
     # Persistence is an included module, so that we can include other modules which override these methods
